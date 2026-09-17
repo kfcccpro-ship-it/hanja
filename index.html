@@ -166,6 +166,7 @@ a.btnlink{display:inline-block;border-radius:14px;padding:12px 20px;font-family:
 .wordBig{font-family:var(--hanja);font-weight:900;font-size:clamp(80px,16vw,130px);text-align:center;line-height:1.1}
 .wordRead{font-family:'Jua';font-size:48px;text-align:center}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:30;padding:16px}
+.modal[hidden]{display:none}
 .modal .card{max-width:640px;max-height:90vh;overflow:auto}
 .capHE{font-family:'Jua';font-size:30px;margin-top:10px;color:var(--ink)}
 .capHE b{color:var(--seal)}
@@ -396,7 +397,7 @@ const DAILY = 10;
 /* ===== 저장소 (기기 저장 + 카톡 리포트) ===== */
 const KEY='hanja_app_v3';
 const KEEP_DAYS=7; // 이미지 기록 보관 일수 (태블릿 저장 공간 보호)
-const blank=()=>({wordNext:0,sess:null,learned:[],days:{},wrong:{},exam:null,subs:[],fast:[],notes:{},he:{},qz:{},focus:{},focusGoalMin:30,pw:'1234',penOnly:true});
+const blank=()=>({wordNext:0,sess:null,learned:[],days:{},wrong:{},exam:null,subs:[],fast:[],notes:{},he:{},qz:{},focus:{},focusGoalMin:30,pendingReport:null,pw:'1234',penOnly:true});
 let db;
 try{db=Object.assign(blank(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){db=blank()}
 function prune(){for(const k of ['notes','qz','he']){const ks=Object.keys(db[k]).sort();while(ks.length>KEEP_DAYS)delete db[k][ks.shift()]}}
@@ -755,6 +756,7 @@ function finishDay(){
   db.wordNext=Math.max(db.wordNext,s.start+WPD);
   const ms=s.activeMs||0,awayN=s.awayN||0,goal=(db.focusGoalMin||30)*60000;
   db.focus[s.date]={ms,awayN};
+  db.pendingReport=s.date;
   db.sess=null;save();
   const mm=Math.floor(ms/60000),ss=Math.floor(ms%60000/1000);
   const focusMsg=ms<=goal?`🏅 집중 시간 ${mm}분 ${ss}초 · ${db.focusGoalMin||30}분 목표 달성!`:`집중 시간 ${mm}분 ${ss}초 (목표 ${db.focusGoalMin||30}분)`;
@@ -763,14 +765,23 @@ function finishDay(){
     <h2>10자 × 5번 = 50번 썼어요!</h2>
     <p class="hz" style="font-size:30px">${words.map(w=>w.word).join(' · ')}</p>
     <p class="jua" style="font-size:20px;color:${ms<=goal?'var(--leaf)':'var(--seal)'}">${focusMsg}${awayN?` · 자리비움 ${awayN}회`:''}</p>
-    <button class="sun big" id="rep">📤 부모님께 카톡 보내기</button>
-    <button class="ghost big" onclick="go('home')">처음으로</button></div>`;
-  $('#rep').onclick=()=>sendReport(s.date);
+    <p class="muted" style="margin:10px 0 0">📤 부모님께 보내야 다음으로 넘어가요</p>
+    <button class="sun big" id="rep">📤 부모님께 카톡 보내기</button></div>`;
+  $('#rep').onclick=()=>sendReport(s.date,()=>{db.pendingReport=null;save();go('home')});
+}
+function reportGate(){ // 카톡 리포트를 보내기 전까지는 어디로도 못 감(새로고침해도 유지)
+  const date=db.pendingReport;
+  app.innerHTML=`<div class="card" style="text-align:center">
+    <span class="stampOk" style="width:120px;height:120px;font-size:22px">보고<br>필요</span>
+    <h2 style="margin:14px 0 4px">${date} 학습을 아직<br>부모님께 못 보냈어요</h2>
+    <p class="muted">카톡으로 보내야 다음으로 넘어갈 수 있어요</p>
+    <button class="sun big" id="rep">📤 부모님께 카톡 보내기</button></div>`;
+  $('#rep').onclick=()=>sendReport(date,()=>{db.pendingReport=null;save();go('home')});
 }
 
 /* ===== 카톡 리포트 (이미지 + 글) ===== */
 const loadImg=src=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src});
-async function sendReport(date){
+async function sendReport(date,onDone){
   const ids=db.days[date]||Object.keys(db.notes[date]||{}).map(Number);
   const qz=db.qz[date]||[],he=db.he[date]||{},notes=db.notes[date]||{},fc=db.focus[date];
   const reads=qz.filter(r=>r.type==='read'),writes=qz.filter(r=>r.type==='write');
@@ -800,7 +811,8 @@ async function sendReport(date){
   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.85));
   const file=new File([blob],`hanja-${date}.jpg`,{type:'image/jpeg'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],text,title:'태이 한자 리포트'});return}catch(e){if(e.name==='AbortError')return}
+    try{await navigator.share({files:[file],text,title:'태이 한자 리포트'});onDone&&onDone();return}
+    catch(e){if(e.name==='AbortError'){toast('취소됐어요. 카톡으로 보내야 다음으로 넘어가요');return}}
   }
   // 공유 기능이 없을 때: 이미지 저장 + 글 복사
   const url=URL.createObjectURL(blob);
@@ -809,8 +821,9 @@ async function sendReport(date){
     <textarea rows="6" style="margin-top:10px">${text}</textarea>
     <div class="row" style="margin-top:10px"><a class="pri btnlink" href="${url}" download="hanja-${date}.jpg">이미지 저장</a><button class="pri" id="cp">글 복사</button><button class="ghost" id="cl">닫기</button></div></div>`;
   document.body.appendChild(m);
-  m.querySelector('#cp').onclick=()=>navigator.clipboard.writeText(text).then(()=>toast('복사했어요. 카톡에 붙여넣기 하세요'),()=>toast('복사하지 못했어요'));
-  m.querySelector('#cl').onclick=()=>m.remove();
+  m.querySelector('a.btnlink').addEventListener('click',()=>onDone&&onDone());
+  m.querySelector('#cp').onclick=()=>{navigator.clipboard.writeText(text).then(()=>toast('복사했어요. 카톡에 붙여넣기 하세요'),()=>toast('복사하지 못했어요'));onDone&&onDone()};
+  m.querySelector('#cl').onclick=()=>{m.remove();onDone&&onDone()};
 }
 
 /* ===== 홈 ===== */
@@ -1185,7 +1198,11 @@ function bookIdx(){
 
 /* ===== 라우터 ===== */
 let curView='home';
-function go(v){window.scrollTo(0,0);curView=v;({home,daily,bookIdx,fast,exam,record,parent:parentLogin})[v]()}
+function go(v){
+  window.scrollTo(0,0);
+  if(db.pendingReport){curView='gate';return reportGate()}
+  curView=v;({home,daily,bookIdx,fast,exam,record,parent:parentLogin})[v]()
+}
 $('#homeBtn').onclick=()=>go('home');
 $('#parentBtn').onclick=()=>go('parent');
 go('home');
