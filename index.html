@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>장원 한자</title>
+<title>태이를 위해 아빠가 만든 한자앱</title>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5.0/dist/hanzi-writer.min.js"></script>
 <style>
@@ -170,7 +170,7 @@ a.btnlink{display:inline-block;border-radius:14px;padding:12px 20px;font-family:
 </head>
 <body>
 <header>
-  <h1><span class="seal">漢</span>장원 한자</h1>
+  <h1><span class="seal">漢</span>태이를 위해 아빠가 만든 한자앱</h1>
     <button class="ghost" id="homeBtn">처음으로</button>
   <button class="ghost" id="parentBtn">부모 모드</button>
 </header>
@@ -726,7 +726,7 @@ async function sendReport(date){
   const reads=qz.filter(r=>r.type==='read'),writes=qz.filter(r=>r.type==='write');
   const okR=reads.filter(r=>r.ok).length;
   const heRe=Object.entries(he).filter(([,v])=>v>0).map(([id])=>byId(+id).ch);
-  const text=`[장원 한자] ${date} 학습 리포트
+  const text=`[태이 한자] ${date} 학습 리포트
 - 배운 한자(${ids.length}자): ${ids.map(id=>{const c=byId(id);return `${c.ch}(${c.hun} ${c.eum})`}).join(', ')}
 - 훈·음 다시 쓴 글자: ${heRe.join(', ')||'없음'}
 - 누적 쪽지 읽기: ${okR}/${reads.length}
@@ -736,7 +736,7 @@ async function sendReport(date){
   const H=P+60+30*4+20+(noteIds.length?40+noteIds.length*84:0)+(lastWrites.length?50+100:0)+P;
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
   x.fillStyle='#F3F7FB';x.fillRect(0,0,W,H);x.fillStyle='#22304A';x.textBaseline='top';
-  x.font='bold 34px sans-serif';x.fillText(`장원 한자 학습 리포트 · ${date}`,P,P);
+  x.font='bold 34px sans-serif';x.fillText(`태이 한자 학습 리포트 · ${date}`,P,P);
   x.font='22px sans-serif';let y=P+60;
   [`배운 한자 ${ids.length}자: ${ids.map(id=>byId(id).ch).join(' ')}`,`훈·음 다시 쓴 글자: ${heRe.join(' ')||'없음'}`,`누적 쪽지 읽기: ${okR} / ${reads.length}`,`한자 쓰기 ${writes.length}문제 → 부모 채점 필요`]
     .forEach(t=>{x.fillText(t,P,y);y+=30});
@@ -748,7 +748,7 @@ async function sendReport(date){
   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.85));
   const file=new File([blob],`hanja-${date}.jpg`,{type:'image/jpeg'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],text,title:'장원 한자 리포트'});return}catch(e){if(e.name==='AbortError')return}
+    try{await navigator.share({files:[file],text,title:'태이 한자 리포트'});return}catch(e){if(e.name==='AbortError')return}
   }
   // 공유 기능이 없을 때: 이미지 저장 + 글 복사
   const url=URL.createObjectURL(blob);
