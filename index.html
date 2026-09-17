@@ -19,13 +19,15 @@
 :root[data-theme="dark"]{--paper:#1A2233;--card:#243049;--ink:#EEF2F8;--sub:#A9B5CA;--line:#3E4C66}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html,body{overscroll-behavior:none}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:21px;font-weight:600;touch-action:manipulation}
 h1,h2,h3,button,.jua{font-family:'Jua','Gowun Dodum',sans-serif;font-weight:400}
 header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--card);border-bottom:2px solid var(--line);position:sticky;top:0;z-index:5}
 header h1{margin:0;font-size:24px;flex:1;display:flex;align-items:center;gap:10px}
 .seal{display:inline-grid;place-items:center;width:40px;height:40px;background:var(--seal);color:#fff;border-radius:8px;font-family:var(--hanja);font-size:24px;transform:rotate(-4deg)}
 main{max-width:980px;margin:0 auto;padding:20px 20px 60px}
-button{border:0;border-radius:16px;padding:14px 22px;font-size:20px;cursor:pointer;background:var(--line);color:var(--ink)}
+button{border:0;border-radius:16px;padding:14px 22px;font-size:20px;cursor:pointer;background:var(--line);color:var(--ink);transition:transform .08s}
+button:active{transform:scale(.96)}
 button.pri{background:var(--sky);color:#fff}
 button.ok{background:var(--leaf);color:#fff}
 button.no{background:var(--seal);color:#fff}
@@ -42,7 +44,9 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .step{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:18px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:150px}
 .step b{font-family:'Jua';font-size:15px;color:var(--sub)}
 .step span.t{font-family:'Jua';font-size:26px}
-.step .big{font-family:var(--hanja);font-size:40px;line-height:1;color:var(--seal)}
+.step .big{font-size:40px;line-height:1}
+.heroDay{font-family:'Jua';font-size:26px}
+.streak{display:inline-block;margin-top:6px;background:var(--sun);color:#22304A;font-family:'Jua';font-size:15px;padding:4px 12px;border-radius:99px}
 .today{display:flex;gap:6px;flex-wrap:wrap;font-family:var(--hanja);font-size:30px}
 .today i{font-style:normal;width:48px;height:48px;display:grid;place-items:center;border-radius:10px;background:var(--paper);border:2px solid var(--line)}
 .today i.done{background:var(--leaf);color:#fff;border-color:var(--leaf)}
@@ -390,6 +394,13 @@ function prune(){for(const k of ['notes','qz','he']){const ks=Object.keys(db[k])
 function save(){prune();try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast('저장 공간이 부족합니다. 부모 모드 → 설정에서 기록을 정리하세요.')}}
 
 const today=()=>new Date().toLocaleDateString('sv-SE');
+function streakDays(){ // 오늘 아직 안 했으면 어제까지 연속일로 계산(학습 전에 스트릭이 끊긴 것처럼 보이지 않게)
+  const has=d=>!!db.days[d];
+  let n=0,d=new Date();
+  if(!has(today()))d.setDate(d.getDate()-1);
+  while(has(d.toLocaleDateString('sv-SE'))){n++;d.setDate(d.getDate()-1)}
+  return n;
+}
 const byId=id=>DATA.find(d=>d.id===id);
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const $=s=>document.querySelector(s);
@@ -755,20 +766,24 @@ function home(){
   const s=db.sess,base=s?s.start:db.wordNext,next=WL.slice(base,base+WPD);
   const doneToday=(db.days[today()]||[]).length>0;
   const pct=s?Math.round(s.step/buildSteps(s.start).length*100):0;
+  const st=streakDays();
+  const dayLabel=next.length?`${Math.floor(base/WPD)+1}일차 학습`:'교재를 모두 배웠어요! 🎉';
+  const ctaLabel=s?`이어서 하기 (${pct}%)`:doneToday?'하루 더 공부하기':'오늘 공부 시작하기';
   app.innerHTML=`
   <div class="card">
-    <div class="row" style="justify-content:space-between"><h2 style="margin:0">오늘의 학습${next.length?` · ${Math.floor(base/WPD)+1}일차`:''}</h2><span class="muted">누적 ${db.learned.length}/${DATA.length}자</span></div>
-    ${doneToday&&!s?'<p class="okMsg" style="margin:8px 0 0">오늘 학습 완료! 🎉</p>':''}
-    <div class="wchips" style="margin:12px 0">${next.map(w=>`<span class="wchip">${w.word}<small>${w.read} · ${w.page}쪽</small></span>`).join('')||'<span class="muted">교재 끝까지 모두 배웠어요! 시험 전 점검으로 복습하세요.</span>'}</div>
-    <p class="muted" style="margin:0">한 글자씩: 배우기 → 5번 쓰기 → 훈·음 쓰기 · 한 단어마다: 단어 익히기 → 누적 쪽지</p>
-    ${next.length?`<button class="pri big" id="start">${s?`이어하기 (${pct}%)`:doneToday?'하루 더 공부하기':'시작하기'}</button>`:''}
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="heroDay">${dayLabel}</div>${st>=1?`<span class="streak">🔥 ${st}일 연속 학습 중</span>`:''}</div>
+      <span class="muted" style="font-size:14px;white-space:nowrap">누적 ${db.learned.length}자</span>
+    </div>
+    ${doneToday&&!s?'<p class="okMsg" style="margin:10px 0 0">오늘 학습 완료! 참 잘했어요 🎉</p>':''}
+    ${next.length?`<button class="pri big" id="start">${ctaLabel}</button>`:''}
     ${doneToday?'<button class="sun big" id="rep">📤 부모님께 카톡 보내기</button>':''}
   </div>
   <div class="path" style="margin-top:14px">
-    <button class="step" data-go="exam" ${db.exam?'':'disabled'}><span class="t">학원 쪽지시험</span><span class="muted">${db.exam?`${db.exam.start}~${db.exam.end}쪽 · 20문제`:'부모님이 범위를 정하면 열려요'}</span><span class="big">試</span></button>
-    <button class="step" data-go="fast"><span class="t">시험 전 점검</span><span class="muted">오답 ${Object.keys(db.wrong).length}개 · 스피드 퀴즈</span><span class="big">速</span></button>
-    <button class="step" data-go="bookIdx"><span class="t">책으로 찾기</span><span class="muted">쪽별 단어 다시 보기</span><span class="big">冊</span></button>
-    <button class="step" data-go="record"><span class="t">내 기록</span><span class="muted">공부한 날 ${Object.keys(db.days).length}일</span><span class="big">錄</span></button>
+    <button class="step" data-go="exam" ${db.exam?'':'disabled'}><span class="big">📝</span><span class="t">학원 쪽지시험</span><span class="muted">${db.exam?`${db.exam.start}~${db.exam.end}쪽 · 20문제`:'범위를 정하면 열려요'}</span></button>
+    <button class="step" data-go="fast"><span class="big">⚡</span><span class="t">시험 전 점검</span><span class="muted">오답 ${Object.keys(db.wrong).length}개 · 스피드 퀴즈</span></button>
+    <button class="step" data-go="bookIdx"><span class="big">📖</span><span class="t">책으로 찾기</span><span class="muted">쪽별 단어 다시 보기</span></button>
+    <button class="step" data-go="record"><span class="big">📊</span><span class="t">내 기록</span><span class="muted">공부한 날 ${Object.keys(db.days).length}일</span></button>
   </div>`;
   if($('#start'))$('#start').onclick=()=>s?daily():startDay();
   if($('#rep'))$('#rep').onclick=()=>sendReport(today());
