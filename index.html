@@ -88,6 +88,11 @@ th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 .gradeRow{display:grid;grid-template-columns:44px 1fr 170px 130px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 @media(max-width:700px){.gradeRow{grid-template-columns:36px 1fr;}}
 .gradeRow img{width:100%;max-width:320px;background:#fff;border:1px solid var(--line);border-radius:8px}
+.gradeImgWrap{position:relative;width:100%;max-width:320px}
+.gradeImgWrap img{width:100%;display:block}
+.ansOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.32;font-weight:900;font-size:clamp(24px,6vw,48px);color:var(--seal);letter-spacing:2px}
+.ansOverlay.jua{font-family:'Jua';font-weight:400;color:var(--sky)}
+.ansOverlay.hz{font-family:var(--hanja)}
 .ans{font-family:var(--hanja);font-size:34px}
 .gbtn{display:flex;gap:6px}
 .gbtn button{padding:10px 16px;font-size:22px;background:var(--card);border:2px solid var(--line)}
@@ -801,7 +806,7 @@ function gradeQuiz(v){
     return`<details ${ws.some(([r])=>r.grade===null)?'open':''}><summary class="jua" style="font-size:18px;padding:6px 0;cursor:pointer">${d} · 읽기 ${rd.filter(r=>r.ok).length}/${rd.length} · 쓰기 ${wo}/${ws.length}</summary>
     <div class="row"><button class="ghost" data-allo="${d}">남은 문항 모두 O</button><button class="sun" data-rep="${d}">📤 리포트</button></div>
     ${ws.map(([r,i],n)=>{const w=byId(r.wid);return`<div class="gradeRow"><b class="jua">${n+1}</b>
-      <div><img src="${r.img}" alt="${w.read} 답안"></div>
+      <div class="gradeImgWrap"><img src="${r.img}" alt="${w.read} 답안"><span class="ansOverlay hz">${w.word}</span></div>
       <div><div class="muted">${w.read} → 정답 · ${w.page}쪽</div><div class="ans">${w.word}</div></div>
       <div class="gbtn"><button data-d="${d}" data-i="${i}" data-g="1" class="${r.grade===true?'selO':''}">O</button><button data-d="${d}" data-i="${i}" data-g="0" class="${r.grade===false?'selX':''}">X</button></div></div>`}).join('')}
     </details>`}).join('')||'<p class="muted">아직 누적 쪽지 기록이 없습니다</p>'}</div>`;
@@ -1062,7 +1067,7 @@ function gradeSubs(v){
     const d=byId(it.id);const r=document.createElement('div');r.className='gradeRow';
     const head=k===0?'<h3 style="grid-column:1/-1;margin:14px 0 0">한자 읽기</h3>':k===10?'<h3 style="grid-column:1/-1;margin:14px 0 0">한자 쓰기</h3>':'';
     r.innerHTML=`${head}<b class="jua">${k+1}</b>
-      <div>${it.img?`<img src="${it.img}" alt="${k+1}번 답안">`:'<span class="muted">빈 답안</span>'}</div>
+      <div>${it.img?`<div class="gradeImgWrap"><img src="${it.img}" alt="${k+1}번 답안"><span class="ansOverlay ${it.type==='read'?'jua':'hz'}">${it.type==='read'?d.read:d.word}</span></div>`:'<span class="muted">빈 답안</span>'}</div>
       <div><span class="book">📖 ${d.page}쪽</span><div class="muted">${it.type==='read'?d.word:d.read} → 정답</div><div class="${it.type==='read'?'jua':'ans'}" style="font-size:32px">${it.type==='read'?d.read:d.word}</div></div>
       <div class="gbtn"><button data-g="1">O</button><button data-g="0">X</button></div>`;
     const paint=()=>{const [o,x]=r.querySelectorAll('.gbtn button');o.className=s.grades[k]===true?'selO':'';x.className=s.grades[k]===false?'selX':''};
