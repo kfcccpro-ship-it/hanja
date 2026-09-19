@@ -143,11 +143,16 @@ a.btnlink{display:inline-block;border-radius:14px;padding:12px 20px;font-family:
 .flow .fl{padding:4px 8px;font-size:18px;color:var(--sub)}
 .flow .fl .hz{color:var(--ink)}
 .flow .fl.now{color:var(--sky);font-family:'Jua';font-size:22px}
+.flow .fl.nav{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.flow .fl.nav:active{opacity:.6}
 .wchips{display:flex;flex-wrap:wrap;gap:8px}
 .wchip{display:inline-flex;flex-direction:column;align-items:center;padding:10px 18px;border-radius:14px;border:2px solid var(--line);font-family:var(--hanja);font-weight:900;font-size:28px;background:var(--card)}
 .wchip small{font-family:'Gowun Dodum';font-size:13px;font-weight:600;color:var(--sub)}
 .wchip.done{background:var(--leaf);color:#fff;border-color:var(--leaf)}.wchip.done small{color:#fff}
 .wchip.now{border-color:var(--sky);box-shadow:0 0 0 2px var(--sky)}
+.wchip.nav{cursor:pointer}
+.wchip.nav:active{transform:scale(.95)}
+.navRow button:disabled{opacity:.35}
 .note5{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
 .note5 .pad,.pad.model,.row .pad{margin:0}
 .pad .cell{background:#fff}
@@ -554,28 +559,42 @@ function buildSteps(start){
 const STEP_NAME={learn:'배우기',write:'5번 쓰기',he:'훈·음 쓰기',word:'단어 익히기',quiz:'누적 쪽지'};
 function startDay(){
   if(db.wordNext>=WL.length)return toast('교재 끝까지 모두 배웠어요!');
-  db.sess={date:today(),start:db.wordNext,step:0};save();daily();
+  db.sess={date:today(),start:db.wordNext,step:0,maxStep:0};save();daily();
+}
+function gotoStep(i){ // 뒤로 갔던 단계 범위(maxStep) 안에서만 이동: 안 풀어본 단계로 건너뛰기는 막음
+  const s=db.sess;if(!s)return;
+  s.step=Math.max(0,Math.min(i,s.maxStep||0));save();daily();
 }
 function daily(){
   curView='daily'; // home()/startDay()에서 라우터(go) 없이 직접 호출되므로 여기서 명시적으로 표시
   const s=db.sess;if(!s)return home();
   const steps=buildSteps(s.start);
   if(s.step>=steps.length)return finishDay();
+  const canForward=s.step<(s.maxStep||0); // 이전에 도달했던 지점까지만 "다음"으로 되돌아갈 수 있음
+  s.maxStep=Math.max(s.maxStep||0,s.step);save();
   const cur=steps[s.step],words=WL.slice(s.start,s.start+WPD);
   const pct=Math.round(s.step/steps.length*100);
+  const firstStepOfWord=k2=>steps.findIndex(st=>st.k===k2);
   let flow='';
   words.slice(0,cur.k).forEach((w,i)=>flow+=`<div class="fl">✓ ${i+1}단어 <b class="hz">${w.word}</b> 배우기·쪽지 완료</div>`);
-  steps.forEach((st,i)=>{if(i<s.step&&st.k===cur.k)flow+=`<div class="fl">✓ ${st.c?`<b class="hz">${st.c.ch}</b> `:st.w?`<b class="hz">${st.w.word}</b> `:''}${STEP_NAME[st.t]}</div>`});
+  steps.forEach((st,i)=>{if(i<s.step&&st.k===cur.k)flow+=`<div class="fl nav" onclick="gotoStep(${i})">✓ ${st.c?`<b class="hz">${st.c.ch}</b> `:st.w?`<b class="hz">${st.w.word}</b> `:''}${STEP_NAME[st.t]}</div>`});
   flow+=`<div class="fl now">▶ ${cur.c?`<b class="hz">${cur.c.ch}</b> `:cur.w?`<b class="hz">${cur.w.word}</b> `:''}${STEP_NAME[cur.t]}${cur.t==='quiz'?` (1~${cur.k+1}단어)`:''}</div>`;
   app.innerHTML=`
   <div class="card">
     <div class="row" style="justify-content:space-between"><b class="jua" style="font-size:22px">오늘의 학습 · ${Math.floor(s.start/WPD)+1}일차</b><span class="muted">${pct}%</span></div>
     <div id="focusTime" class="focusTime"></div>
     <div class="prog" style="margin:8px 0"><div style="width:${pct}%"></div></div>
-    <div class="wchips">${words.map((w,k)=>`<span class="wchip ${k<cur.k?'done':k===cur.k?'now':''}">${w.word}<small>${k<cur.k?'완료':w.read}</small></span>`).join('')}</div>
+    <div class="wchips">${words.map((w,k)=>{const canJump=k<cur.k&&firstStepOfWord(k)<=(s.maxStep||0);
+      return `<span class="wchip ${k<cur.k?'done':k===cur.k?'now':''}${canJump?' nav':''}"${canJump?` onclick="gotoStep(${firstStepOfWord(k)})"`:''}>${w.word}<small>${k<cur.k?'완료':w.read}</small></span>`}).join('')}</div>
+    <div class="row navRow" style="justify-content:space-between;margin-top:10px">
+      <button class="ghost" id="prevBtn" ${s.step<=0?'disabled':''}>◀ 이전</button>
+      <button class="ghost" id="nextBtn" ${canForward?'':'disabled'}>다음 ▶</button>
+    </div>
   </div>
   <div class="flow">${flow}</div>
   <div class="card stepCard" id="stepCard"></div>`;
+  $('#prevBtn').onclick=()=>gotoStep(s.step-1);
+  $('#nextBtn').onclick=()=>gotoStep(s.step+1);
   const card=$('#stepCard');
   const next=()=>{if(!alive(card))return;s.step++;save();daily()};
   ({learn:stepLearn,write:stepWrite,he:stepHE,word:stepWord,quiz:stepQuiz})[cur.t](card,cur,next);
